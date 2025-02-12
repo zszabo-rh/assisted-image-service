@@ -67,7 +67,7 @@ var _ = Context("with test files", func() {
 		})
 
 		It("ram disk created successfully", func() {
-			err := nmstateHandler.CreateNmstateRamDisk("", ramDiskPath)
+			err := nmstateHandler.CreateNmstateRamDisk("", ramDiskPath, filepath.Join(extractDir, "nmstate"))
 			Expect(err).ToNot(HaveOccurred())
 
 			exists, err := fileExists(ramDiskPath)

@@ -15,7 +15,7 @@ import (
 
 //go:generate mockgen -package=isoeditor -destination=mock_nmstate_handler.go . NmstateHandler
 type NmstateHandler interface {
-	CreateNmstateRamDisk(rootfsPath, ramDiskPath string) error
+	CreateNmstateRamDisk(rootfsPath, ramDiskPath, nmstateDir string) error
 }
 
 type nmstateHandler struct {
@@ -30,14 +30,20 @@ func NewNmstateHandler(workDir string, executer Executer) NmstateHandler {
 	}
 }
 
-func (n *nmstateHandler) CreateNmstateRamDisk(rootfsPath, ramDiskPath string) error {
-	// Extract nmstatectl binary
+func (n *nmstateHandler) CreateNmstateRamDisk(rootfsPath, ramDiskPath, nmstateDir string) error {
 	var err error
-	nmstateDir := filepath.Join(n.workDir, "nmstate")
-	err = os.MkdirAll(nmstateDir, os.ModePerm)
-	if err != nil {
-		return err
+
+	// Prepare a random working folder for nmstate, unless it's a unit test run
+	// For unit tests the nmstate directory is already prepared by the suite
+	if nmstateDir == "" {
+
+		nmstateDir, err = os.MkdirTemp(n.workDir, "nmstate")
+		if err != nil {
+			return err
+		}
 	}
+
+	// Extract nmstatectl binary
 	binaryPath, err := n.extractNmstatectl(rootfsPath, nmstateDir)
 	if err != nil {
 		return err

@@ -95,7 +95,7 @@ func (e *rhcosEditor) CreateMinimalISOTemplate(fullISOPath, rootFSURL, arch, min
 
 	if versionOK {
 		rootfsPath := filepath.Join(extractDir, "images/pxeboot/rootfs.img")
-		err = e.nmstateHandler.CreateNmstateRamDisk(rootfsPath, ramDiskPath)
+		err = e.nmstateHandler.CreateNmstateRamDisk(rootfsPath, ramDiskPath, "")
 		if err != nil {
 			return fmt.Errorf("failed to create nmstate ram disk for arch %s: %v", arch, err)
 		}
