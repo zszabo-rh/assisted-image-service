@@ -12,6 +12,8 @@ import (
 type ServerInfo struct {
 	HTTP            *http.Server
 	HTTPS           *http.Server
+	HTTP_v6         *http.Server
+	HTTPS_v6        *http.Server
 	HTTPSKeyFile    string
 	HTTPSCertFile   string
 	HasBothHandlers bool
@@ -24,7 +26,11 @@ func New(httpPort, httpsPort, HTTPSKeyFile, HTTPSCertFile string) *ServerInfo {
 		// Run HTTPS listener when port, key and cert are specified
 		// This is default in operator deployments
 		servers.HTTPS = &http.Server{
-			Addr:              fmt.Sprintf(":%s", httpsPort),
+			Addr:              fmt.Sprintf("0.0.0.0:%s", httpsPort),
+			ReadHeaderTimeout: 3 * time.Second,
+		}
+		servers.HTTPS_v6 = &http.Server{
+			Addr:              fmt.Sprintf("[::]:%s", httpsPort),
 			ReadHeaderTimeout: 3 * time.Second,
 		}
 		servers.HTTPSCertFile = HTTPSCertFile
@@ -33,14 +39,22 @@ func New(httpPort, httpsPort, HTTPSKeyFile, HTTPSCertFile string) *ServerInfo {
 		// Run HTTP listener on HTTPS port if httpPort is not set
 		// This is default in podman deployment
 		servers.HTTP = &http.Server{
-			Addr:              fmt.Sprintf(":%s", httpsPort),
+			Addr:              fmt.Sprintf("0.0.0.0:%s", httpsPort),
+			ReadHeaderTimeout: 3 * time.Second,
+		}
+		servers.HTTP_v6 = &http.Server{
+			Addr:              fmt.Sprintf("[::]:%s", httpsPort),
 			ReadHeaderTimeout: 3 * time.Second,
 		}
 	}
 	if httpPort != "" {
 		// Run HTTP listener if httpPort is set
 		servers.HTTP = &http.Server{
-			Addr:              fmt.Sprintf(":%s", httpPort),
+			Addr:              fmt.Sprintf("0.0.0.0:%s", httpPort),
+			ReadHeaderTimeout: 3 * time.Second,
+		}
+		servers.HTTP_v6 = &http.Server{
+			Addr:              fmt.Sprintf("[::]:%s", httpPort),
 			ReadHeaderTimeout: 3 * time.Second,
 		}
 	}
@@ -61,11 +75,13 @@ func shutdown(name string, server *http.Server) {
 
 func (s *ServerInfo) ListenAndServe() {
 	if s.HTTP != nil {
-		go s.httpListen()
+		go httpListen(s.HTTP)
+		go httpListen(s.HTTP_v6)
 	}
 
 	if s.HTTPS != nil {
-		go s.httpsListen()
+		go httpListen(s.HTTPS)
+		go httpListen(s.HTTPS_v6)
 	}
 }
 
@@ -87,16 +103,9 @@ func (s *ServerInfo) Shutdown() bool {
 	return true
 }
 
-func (s *ServerInfo) httpListen() {
-	log.Infof("Starting http handler on %s...", s.HTTP.Addr)
-	if err := s.HTTP.ListenAndServe(); err != http.ErrServerClosed {
-		log.Fatalf("HTTP listener closed: %v", err)
-	}
-}
-
-func (s *ServerInfo) httpsListen() {
-	log.Infof("Starting https handler on %s...", s.HTTPS.Addr)
-	if err := s.HTTPS.ListenAndServeTLS(s.HTTPSCertFile, s.HTTPSKeyFile); err != http.ErrServerClosed {
-		log.Fatalf("HTTPS listener closed: %v", err)
+func httpListen(server *http.Server) {
+	log.Infof("Starting handler on %s...", server.Addr)
+	if err := server.ListenAndServe(); err != http.ErrServerClosed {
+		log.Fatalf("Listener closed: %v", err)
 	}
 }
